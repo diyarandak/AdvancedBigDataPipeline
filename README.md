@@ -1,213 +1,147 @@
-# 🛒 Olist E-Ticaret Veri Mühendisliği ve Analitik Platformu
+# 🚀 Olist Gelişmiş Büyük Veri Boru Hattı (Modern Data Stack)
 
-![Olist Dashboard](assets/screenshots/superset_dashboard_1.png)
+Bu proje, Brezilya E-Ticaret Platformu Olist'e ait gerçek veri seti kullanılarak geliştirilmiş, uçtan uca, kurumsal seviyede bir **Büyük Veri (Big Data) ve Veri Mühendisliği** projesidir.
 
-## 📌 Proje Özeti
-Bu proje, Brezilya'nın en büyük e-ticaret platformlarından biri olan **Olist** veri seti kullanılarak sıfırdan inşa edilmiş, uçtan uca (end-to-end) bir **Veri Mühendisliği ve İş Zekası (BI)** platformudur. 
-
-Projenin temel amacı, karmaşık ve dağınık haldeki e-ticaret verilerini alıp, endüstri standartlarındaki **Medallion Mimarisi** (Bronze, Silver, Gold) prensipleriyle işlemek ve şirket yöneticilerinin veri odaklı kararlar almasını sağlayacak hızda bir gösterge paneline (dashboard) dönüştürmektir.
+Modern Data Stack (Modern Veri Yığını) prensipleri benimsenerek; veriler Data Lake (Veri Gölü) ortamından alınmış, **Medallion Mimarisi** (Bronze, Silver, Gold) kullanılarak işlenmiş ve son kullanıcılar için Apache Superset üzerinde analiz edilebilir **Yıldız Şema (Star Schema)** modeline dönüştürülmüştür. Bütün bu akış Apache Airflow tarafından orkestre edilmektedir.
 
 ---
 
-## 🏗️ Mimari ve Teknoloji Yığını (Tech Stack)
+## 🏛️ Mimari Tasarım (Medallion Architecture)
 
-Modern bir Data Lakehouse mimarisi kurmak için aşağıdaki teknolojiler entegre bir şekilde kullanılmıştır:
+Proje, veriyi ham halinden en değerli analitik haline kadar katman katman işleyen Medallion yaklaşımını kullanmaktadır:
 
-- **Orkestrasyon ve Zamanlama:** Apache Airflow
-- **Veri İşleme Motoru:** Apache Spark (PySpark)
-- **Veri Formatı ve Depolama:** Apache Iceberg + Hadoop (HDFS)
-- **İş Zekası ve Görselleştirme:** Apache Superset
-- **Konteyner Mimarisi:** Docker & Docker Compose
-- **Veri Modelleme:** Kimball Boyutsal Modelleme (Yıldız Şema - Star Schema)
+```mermaid
+graph LR
+    subgraph "Extract & Load (EL)"
+        CSV[(Kaggle Ham CSV)] -->|PySpark Ingestion| Bronze[(Bronze Katman\nIceberg / Parquet)]
+    end
+    
+    subgraph "Transform (T) - dbt"
+        Bronze -->|dbt Staging| Silver[(Silver Katman\nTemizlenmiş Veri)]
+        Silver -->|dbt Models| Gold[(Gold Katman\nYıldız Şema)]
+    end
+    
+    subgraph "Serve & Analyze"
+        Gold -->|Apache Doris| BI[Apache Superset\nDashboard]
+    end
+    
+    Airflow((Apache Airflow)) -.->|Zamanlar| PySpark Ingestion
+    Airflow -.->|Cosmos ile Çalıştırır| Bronze
+```
 
-![Mimari Akış](assets/screenshots/superset_dashboard_2.png)
-
----
-
-## 🛠️ Projede Neler Yaptık? (Adım Adım Geliştirme Süreci)
-
-Bu proje sadece kod yazmaktan ibaret değil, sıfırdan ölçeklenebilir bir veri platformu mimarisi kurma sürecidir. İşte projede gerçekleştirdiğimiz kritik adımlar:
-
-1. **Altyapının Kurulması (Infrastructure):**
-   - HDFS, Spark Master/Worker, Airflow, Superset ve gerekli veritabanları için izole Docker konteynerleri oluşturuldu.
-   - Bu konteynerlerin birbirleriyle haberleşmesi için ortak bir Docker ağı (`bigdata-net`) kuruldu. (Geliştirme sırasında çıkan port ve network çakışmaları çözülerek sağlam bir yapı kuruldu).
-
-2. **Otomatik Veri Çekme (Ingestion):**
-   - Kaggle API'si kullanılarak Olist verisetinin otomatik olarak indirilmesini sağlayan Python betikleri (`download_dataset.py`) yazıldı.
-
-3. **Veri Boru Hattı (Medallion Pipeline) Geliştirilmesi:**
-   - **🥉 Bronze Katmanı:** Ham veriler, hız ve güvenilirlik için doğrudan Iceberg formatında Data Lake'e yazıldı.
-   - **🥈 Silver Katmanı:** PySpark ile veri kalitesi (Data Quality) testleri yapıldı. Null değerler temizlendi, Portekizce kategoriler analiz kolaylığı için İngilizceye çevrildi ve tarih (timestamp) formatları standardize edildi.
-   - **🥇 Gold Katmanı:** İş zekası (BI) araçlarının çok hızlı okuyabilmesi için veriler Yıldız Şema'ya (Star Schema) dönüştürüldü. Analiz (Fact) ve Boyut (Dimension) tabloları oluşturuldu.
-
-4. **Orkestrasyon (Airflow):**
-   - Tüm bu veri akışı `olist_pipeline_dag.py` isimli bir Airflow DAG (Directed Acyclic Graph) üzerinde tanımlandı. İşlerin sırasıyla (Bronze -> Silver -> Gold) ve hatasız çalışması garanti altına alındı.
-
-5. **İş Zekası (Superset):**
-   - Oluşturulan Gold tablolar, Spark Thrift Server üzerinden Apache Superset'e bağlandı.
-   - Üst düzey yöneticiler için "Ciro, Lojistik Maliyetleri, Kategori Kralları ve Teslimat Performansı" gibi metrikleri içeren profesyonel bir Dashboard inşa edildi.
+| Katman | Araç | Görev |
+| :--- | :--- | :--- |
+| 🥉 **Bronze (Ham)** | PySpark | Dış kaynaktaki veriyi hiçbir değişikliğe uğratmadan veri gölüne (Iceberg) yazar. |
+| 🥈 **Silver (Staging)** | dbt | Veri tiplerini düzeltir, NULL kayıtları süzer ve veri kalitesini standartlaştırır. |
+| 🥇 **Gold (Marts)** | dbt | Temizlenmiş verileri Star Schema (Yıldız Şema) yapısında birleştirerek iş birimine hazır Fact ve Dimension tabloları oluşturur. |
 
 ---
 
-## 🌟 Star Schema (Yıldız Şema) Veri Modeli
+## 🌟 Veri Modelleme (Star Schema)
 
-Gold katmanında analitik sorguları hızlandırmak ve Superset ile görselleştirmeyi kolaylaştırmak için aşağıdaki **Yıldız Şema** veri modeli tasarlanmıştır:
+Analitik sorguların inanılmaz hızlı çalışması ve raporlama araçlarının (Superset vb.) rahat okuyabilmesi için **Gold** katmanımız Yıldız Şema yapısında tasarlanmıştır.
 
 ```mermaid
 erDiagram
-    FACT_ORDER_SALES {
-        string order_id
-        string customer_id
-        string order_status
-        timestamp order_purchase_timestamp
-        int year
-        int month
-        float price
-        float freight_value
-        float avg_review_score
+    fact_orders {
+        string order_id PK
+        string customer_key FK
+        date order_date_key FK
+        decimal total_order_value
+        string delivery_status
     }
     
-    FACT_ORDER_PAYMENTS {
-        string order_id
-        string customer_id
-        int payment_sequential
-        string payment_type
-        int payment_installments
-        float payment_value
-        int year
-        int month
+    fact_order_items {
+        string order_item_surrogate_key PK
+        string order_id FK
+        string product_key FK
+        string seller_key FK
+        decimal price
+        decimal freight_value
     }
-    
-    DIM_CUSTOMERS {
-        string customer_id
-        string customer_unique_id
-        string customer_zip_code_prefix
+
+    dim_customers {
+        string customer_key PK
         string customer_city
-        string customer_state
+        string customer_region
     }
     
-    DIM_PRODUCTS {
-        string product_id
-        string product_category_name
-        float product_weight_g
-        float product_length_cm
-        float product_height_cm
-        float product_width_cm
-    }
-    
-    DIM_SELLERS {
-        string seller_id
-        string seller_zip_code_prefix
+    dim_sellers {
+        string seller_key PK
         string seller_city
-        string seller_state
+        string seller_region
     }
-    
-    DIM_DATES {
-        date date_sk
+
+    dim_products {
+        string product_key PK
+        string product_category
+        string product_size_category
+    }
+
+    dim_date {
+        date date_key PK
         int year
-        int month
-        int day
         int quarter
-        boolean is_weekend
+        string month_name_pt
     }
 
-    DIM_GEOLOCATION {
-        string geolocation_zip_code_prefix
-        float avg_latitude
-        float avg_longitude
-        string city
-        string state
-    }
-
-    FACT_ORDER_SALES }o--|| DIM_CUSTOMERS : "customer_id"
-    FACT_ORDER_SALES }o--|| DIM_PRODUCTS : "product_id"
-    FACT_ORDER_SALES }o--|| DIM_SELLERS : "seller_id"
-    FACT_ORDER_SALES }o--|| DIM_DATES : "order_purchase_timestamp = date_sk"
+    %% Relationships
+    fact_orders }o--|| dim_customers : "Satın alır"
+    fact_orders }o--|| dim_date : "Sipariş verilir"
     
-    FACT_ORDER_PAYMENTS }o--|| DIM_CUSTOMERS : "customer_id"
-    FACT_ORDER_PAYMENTS }o--|| DIM_DATES : "order_purchase_timestamp = date_sk"
-    
-    DIM_CUSTOMERS }o--|| DIM_GEOLOCATION : "customer_zip_code_prefix = geolocation_zip_code_prefix"
-    DIM_SELLERS }o--|| DIM_GEOLOCATION : "seller_zip_code_prefix = geolocation_zip_code_prefix"
+    fact_order_items }o--|| fact_orders : "Aittir"
+    fact_order_items }o--|| dim_products : "İçerir"
+    fact_order_items }o--|| dim_sellers : "Satılır"
 ```
 
+### 📊 Tablo Yapıları
+1. **Fact (Gerçek) Tabloları:** `fact_orders`, `fact_order_items`, `fact_seller_performance` (Performans metrikleri ve sipariş tutarlarını içerir. Sadece yeni gelen verilerle **Incremental** olarak güncellenir).
+2. **Dimension (Boyut) Tabloları:** `dim_customers`, `dim_products`, `dim_sellers`, `dim_date`, `dim_geography` (Sorguları filtrelemek ve gruplamak için kullanılan anahtar açıklayıcı özellikler. SCD2 geçmiş takibi içerir).
+
 ---
 
-## 📁 Proje Klasör Yapısı (Directory Structure)
+## 🛠️ Kullanılan Teknolojiler
 
-Proje, temiz kod ve modüler mimari prensiplerine göre aşağıdaki gibi organize edilmiştir:
+*   **Veri Çıkarma (Ingestion):** PySpark (Büyük boyutlu verileri hızlıca Iceberg tablosu yapar)
+*   **Veritabanı / Veri Ambarı:** Apache Doris (Aşırı hızlı, modern OLAP motoru)
+*   **Veri Dönüştürme:** dbt (Data Build Tool - SQL ile test, dönüşüm, makro yazma)
+*   **Orkestrasyon:** Apache Airflow & Astronomer Cosmos (Hata bildirimli gelişmiş DAG zincirleri)
+*   **Veri Görselleştirme:** Apache Superset (Executive ve Operasyonel paneller)
 
-```text
-📦 BigData-Pipeline-Project
- ┣ 📂 airflow          # Airflow DAG dosyalarının (Zamanlanmış veri görevleri) bulunduğu klasör
- ┃ ┗ 📂 dags          
- ┃   ┗ 📜 olist_pipeline_dag.py
- ┣ 📂 assets           # Proje içindeki statik dosyalar ve görseller
- ┃ ┗ 📂 screenshots    # Superset'ten alınan detaylı Dashboard ekran görüntüleri (superset_dashboard_1.png vb.)
- ┣ 📂 config           # Veritabanı, bucket ve pipeline konfigürasyon dosyaları (YAML formatında)
- ┣ 📂 docker           # Her bir servis (HDFS, Spark, Superset vb.) için ayrı ayrı docker-compose yapılandırmaları
- ┣ 📂 processing       # PySpark veri işleme kodlarının kalbi
- ┃ ┣ 📜 bronze_ingestion.py       # Ham veriyi Data Lake'e yazan kod
- ┃ ┣ 📜 silver_transformation.py  # Veri temizleme ve dönüştürme kodu
- ┃ ┣ 📜 gold_modeling.py          # Yıldız Şema modellerini oluşturan kod
- ┃ ┣ 📜 data_quality.py           # Veri bütünlüğünü test eden script
- ┃ ┗ 📜 utils.py                  # Ortak Spark session gibi yardımcı fonksiyonlar
- ┣ 📂 reports          # Veri mimarisini ve alınan iş kararlarını anlatan detaylı analiz dokümanları
- ┃ ┗ 📜 REPORT.md      # Çok kapsamlı Proje Analiz ve BI Raporu
- ┣ 📂 scripts          # Ağ kurma, veri indirme gibi altyapı otomasyon betikleri
- ┣ 📂 tests            # Pytest ile yazılmış Unit (Birim) testleri
- ┣ 📂 visualization    # Iceberg tablolarını otomatik olarak Superset'e kaydeden bağlantı betikleri
- ┣ 📜 Makefile         # Tüm Docker mimarisini ve pipeline'ı tek tuşla (make setup vb.) kurmayı sağlayan sihirli dosya
- ┗ 📜 README.md        # Şu an okuduğunuz detaylı portfolyo vitrin dosyası
+---
+
+## ✨ Projenin Kurumsal (Enterprise) Özellikleri
+
+*   **Veri Kalite Testleri:** dbt Expectation ve Custom testler ile anomaly detection (Örn: Ödeme tutarı sipariş tutarını aşamaz).
+*   **SCD Type 2 (Snapshots):** Müşteri lokasyon değişikliklerinin tarihsel bazda takip edilebilmesi.
+*   **dbt Macros & Seeds:** Tekrar eden SQL kodlarının modüler (DRY) yapılması ve Brezilya eyalet gibi referans verilerin statik CSV olarak sisteme alınması.
+*   **Gelişmiş Airflow SLA:** Belirlenen sürede (Service Level Agreement) tamamlanmayan veri akışlarında alarm bildirim sistemi.
+*   **SQL Linter:** Kod bütünlüğünü sağlamak için `SQLFluff` konfigürasyonu.
+
+---
+
+## 🚀 Projeyi Çalıştırma (Kurulum)
+
+### 1. Servisleri Başlatma
+Tüm altyapı (Hadoop, Doris, Airflow, Superset) Docker üzerinde çalışır:
+```bash
+make setup
 ```
 
----
+### 2. Veri Boru Hattını (Pipeline) Tetikleme
+PySpark veriyi göle indirir ve dbt tüm dönüşüm/test süreçlerini çalıştırır:
+```bash
+make download
+make pipeline
+```
 
-## 📊 İş Zekası (BI) ve Dashboard Görselleri
+### 3. Veri Soyağacı (Lineage) ve Dokümantasyon
+dbt'nin oluşturduğu otomatik web arayüzünü görmek için:
+```bash
+cd olist_dbt
+dbt docs generate
+dbt docs serve
+```
 
-Superset üzerinde, yöneticilere gerçek zamanlı karar alma yeteneği sunan veri panolarımız:
-
-- **Eyaletlere Göre Lojistik Analizi & Kategori Ciro Dağılımı:**
-![Dashboard Preview](assets/screenshots/superset_dashboard_3.png)
-
-- **Aylık Ciro Trendleri:**
-![Dashboard Preview](assets/screenshots/superset_dashboard_4.png)
-
-- **Teslimat Başarı Oranları ve Sipariş Durumları:**
-![Dashboard Preview](assets/screenshots/superset_dashboard_5.png)
-
-*(Daha detaylı mimari analiz ve iş odaklı kararlar için `reports/REPORT.md` dosyasını inceleyebilirsiniz.)*
-
----
-
-## 🚀 Projeyi Kendi Bilgisayarında Çalıştırma
-
-Bu projeyi yerel ortamınızda (Localhost) tam kapsamlı olarak çalıştırmak için aşağıdaki adımları izleyebilirsiniz:
-
-1. **Projeyi Klonlayın:**
-   ```bash
-   git clone https://github.com/diyarandak/DiyarPipelineProject.git
-   cd DiyarPipelineProject
-   ```
-
-2. **Sistemleri Ayağa Kaldırın:**
-   ```bash
-   make setup
-   ```
-   *Bu komut Docker ağını kurar ve HDFS, Spark, Airflow, Superset gibi tüm altyapıyı tek tuşla başlatır.*
-
-3. **Veri Boru Hattını (Pipeline) Çalıştırın:**
-   ```bash
-   make pipeline
-   ```
-   *Bu komut sırasıyla Bronze, Silver ve Gold PySpark işlerini çalıştırıp ham veriyi iş zekasına hazır hale getirir.*
-
-4. **Tabloları Superset'e Kaydedin:**
-   ```bash
-   make dashboard
-   ```
-   *İşlemler bitince `http://localhost:8088` adresinden Superset'e girip interaktif panoları inceleyebilirsiniz.*
-
----
-
-
+### 4. Superset (Dashboardlar)
+Raporları ve panelleri görüntülemek için `http://localhost:8088` adresine gidiniz (admin/admin).

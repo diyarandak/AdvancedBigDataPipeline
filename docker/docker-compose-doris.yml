@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  doris-fe:
+    image: apache/doris:2.0.3-fe-x86_64
+    container_name: doris-fe
+    hostname: doris-fe
+    environment:
+      - FE_SERVERS=doris-fe:9010:9020
+      - FE_ID=1
+    ports:
+      - "8030:8030" # HTTP port for web UI
+      - "9030:9030" # MySQL client port for dbt/Superset
+    networks:
+      - bigdata-net
+    volumes:
+      - doris-fe-meta:/opt/apache-doris/fe/doris-meta
+      - doris-fe-log:/opt/apache-doris/fe/log
+
+  doris-be:
+    image: apache/doris:2.0.3-be-x86_64
+    container_name: doris-be
+    hostname: doris-be
+    depends_on:
+      - doris-fe
+    environment:
+      - FE_SERVERS=doris-fe:9010:9020
+      - BE_ADDR=doris-be:9050
+    ports:
+      - "8040:8040"
+    networks:
+      - bigdata-net
+    volumes:
+      - doris-be-storage:/opt/apache-doris/be/storage
+      - doris-be-log:/opt/apache-doris/be/log
+
+networks:
+  bigdata-net:
+    external: true
+
+volumes:
+  doris-fe-meta:
+  doris-fe-log:
+  doris-be-storage:
+  doris-be-log:

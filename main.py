@@ -25,9 +25,8 @@ def main():
     
     # Sırayla çalıştırılacak tüm sistemlerin listesi
     pipeline_scripts = [
-        "processing/bronze_ingestion.py",      # 1. Aşama: Veriyi Raw'dan Bronze'a al (Ham Veri)
-        "processing/silver_transformation.py", # 2. Aşama: Veriyi temizle ve Silver'a at (Kalite)
-        "processing/gold_modeling.py",         # 3. Aşama: Star Schema ile Gold tabloyu oluştur (Analiz)
+        "processing/bronze_ingestion.py",      # 1. Aşama: Veriyi Oku ve HDFS'e at (Bronze/Lake)
+        # 2. and 3. aşamalar (Silver and Gold) will now be handled by dbt via Airflow.
         "visualization/register_tables.py"     # 4. Aşama: Olan biteni otomatik olarak Superset'e bağla!
     ]
     

@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: hdfs_catalog
+    schema: bronze
+    description: "Raw Olist datasets loaded into HDFS by PySpark as Parquet files"
+    tables:
+      - name: customers
+        description: "Customer data"
+      - name: orders
+        description: "Order headers"
+      - name: order_items
+        description: "Order items details"
+      - name: products
+        description: "Products catalog"
+      - name: order_payments
+        description: "Order payments data"
+      - name: order_reviews
+        description: "Order reviews data"
+      - name: sellers
+        description: "Sellers data"
+      - name: product_category_name_translation
+        description: "Product category name translation to English"

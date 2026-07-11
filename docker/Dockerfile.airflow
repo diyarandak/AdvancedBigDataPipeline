@@ -21,5 +21,9 @@ ENV JAVA_HOME=/usr/lib/jvm/default-java
 
 USER airflow
 
-# Install Apache Airflow Spark Provider
-RUN pip install --no-cache-dir "apache-airflow==2.7.1" apache-airflow-providers-apache-spark
+# Install Apache Airflow Spark Provider and Astronomer Cosmos
+RUN pip install --no-cache-dir "apache-airflow==2.7.1" \
+    apache-airflow-providers-apache-spark \
+    astronomer-cosmos \
+    dbt-core \
+    dbt-mysql

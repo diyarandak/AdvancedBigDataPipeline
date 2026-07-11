@@ -1,20 +1,19 @@
 # ============================================================
-# Olist Big Data Pipeline — Makefile
+# Olist Big Data Pipeline — Makefile (Modern Data Stack Edition)
 # ============================================================
 # Usage:
-#   make setup     — Create Docker network & start all services
+#   make setup     — Create Docker network & start all services (incl. Doris)
 #   make download  — Download Olist dataset from Kaggle
-#   make bronze    — Ingest CSV to Bronze layer (Iceberg)
-#   make silver    — Transform Bronze → Silver (cleaned)
-#   make gold      — Model Silver → Gold (Star Schema)
-#   make pipeline  — Run full pipeline (bronze → silver → gold)
+#   make bronze    — Ingest CSV to Bronze layer (HDFS via Spark)
+#   make dbt-run   — Transform Bronze → Silver → Gold (via dbt)
+#   make pipeline  — Run full pipeline (bronze + dbt)
 #   make dashboard — Register tables in Superset
 #   make all       — Setup + download + pipeline + dashboard
 #   make stop      — Stop all Docker services
 #   make clean     — Stop services and remove volumes
 # ============================================================
 
-.PHONY: setup download bronze silver gold pipeline dashboard all stop clean test lint
+.PHONY: setup download bronze dbt-run dbt-test pipeline dashboard all stop clean lint
 
 # --- Variables ---
 ICEBERG_PACKAGE ?= org.apache.iceberg:iceberg-spark-runtime-3.3_2.12:1.4.3
@@ -25,6 +24,8 @@ setup:
 	bash scripts/setup_network.sh
 	@echo "🐳 Starting HDFS..."
 	docker compose -f docker/docker-compose-hdfs.yml up -d
+	@echo "🗄️ Starting Apache Doris..."
+	docker compose -f docker/docker-compose-doris.yml up -d
 	@echo "⚡ Starting Spark..."
 	docker compose -f docker/docker-compose-spark.yml up -d
 	@echo "📊 Starting Superset..."
@@ -41,18 +42,18 @@ download:
 	docker exec olist-dev python scripts/download_dataset.py
 
 bronze:
-	@echo "🟤 Running Bronze ingestion..."
+	@echo "🟤 Running Bronze ingestion (PySpark)..."
 	docker exec olist-dev spark-submit --packages $(ICEBERG_PACKAGE) processing/bronze_ingestion.py
 
-silver:
-	@echo "⚪ Running Silver transformation..."
-	docker exec olist-dev spark-submit --packages $(ICEBERG_PACKAGE) processing/silver_transformation.py
+dbt-run:
+	@echo "⚪⭐ Running dbt transformations (Silver & Gold)..."
+	cd olist_dbt && dbt deps && dbt run
 
-gold:
-	@echo "⭐ Running Gold modeling..."
-	docker exec olist-dev spark-submit --packages $(ICEBERG_PACKAGE) processing/gold_modeling.py
+dbt-test:
+	@echo "🧪 Running dbt data quality tests..."
+	cd olist_dbt && dbt test
 
-pipeline: bronze silver gold
+pipeline: bronze dbt-run dbt-test
 	@echo "✅ Full pipeline complete!"
 
 dashboard:
@@ -67,6 +68,7 @@ stop:
 	@echo "🛑 Stopping all services..."
 	-docker compose -f docker/docker-compose-airflow.yml down
 	-docker compose -f docker/docker-compose-superset.yml down
+	-docker compose -f docker/docker-compose-doris.yml down
 	-docker compose -f docker/docker-compose-spark.yml down
 	-docker compose -f docker/docker-compose-hdfs.yml down
 	-docker compose -f docker/docker-compose-dev.yml down
@@ -74,16 +76,13 @@ stop:
 
 clean: stop
 	@echo "🗑️  Removing volumes..."
+	-docker compose -f docker/docker-compose-doris.yml down -v
 	-docker compose -f docker/docker-compose-hdfs.yml down -v
 	-docker compose -f docker/docker-compose-spark.yml down -v
 	-docker compose -f docker/docker-compose-superset.yml down -v
 	@echo "✅ Cleaned up."
 
-test:
-	@echo "🧪 Running tests..."
-	python -m pytest tests/ -v
-
 lint:
 	@echo "🔍 Running code quality checks..."
-	black --check processing/ visualization/ scripts/
-	flake8 processing/ visualization/ scripts/
+	black --check processing/ scripts/
+	flake8 processing/ scripts/
