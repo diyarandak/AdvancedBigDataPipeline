@@ -29,16 +29,16 @@ graph LR
     end
     
     subgraph "Transform (T) - dbt"
-        Bronze -->|"dbt Staging (Deduplication)"| Silver[("Silver Katman\nTemizlenmiş Veri")]
-        Silver -->|"dbt Models"| Gold[("Gold Katman\nYıldız Şema")]
+        Bronze -->|dbt Staging Deduplication| Silver[("Silver Katman\nTemizlenmiş Veri")]
+        Silver -->|dbt Models| Gold[("Gold Katman\nYıldız Şema")]
     end
     
     subgraph "Serve & Analyze"
-        Gold -->|"Apache Doris"| BI["Apache Superset\nDashboard API"]
+        Gold -->|Apache Doris| BI["Apache Superset\nDashboard API"]
     end
     
-    Airflow(("Apache Airflow")) -.->|"Zamanlar"| PySpark Ingestion
-    Airflow -.->|"Cosmos ile Çalıştırır"| Bronze
+    Airflow(("Apache Airflow")) -.->|Zamanlar| PySpark Ingestion
+    Airflow -.->|Cosmos ile Calistirir| Bronze
 ```
 
 | Katman | Araç | Görev |
@@ -104,6 +104,17 @@ erDiagram
         int quarter
         string month_name_pt
     }
+    
+    dim_geography {
+        string zip_code_prefix PK
+        string city
+        string state
+    }
+    
+    dim_payment_type {
+        string payment_type_key PK
+        string payment_type_name
+    }
 
     %% Relationships
     fact_orders }o--|| dim_customers : "Satın alır"
@@ -114,6 +125,8 @@ erDiagram
     fact_order_items }o--|| dim_sellers : "Satılır"
     
     fact_seller_performance ||--|| dim_sellers : "Performans"
+    dim_customers }o--|| dim_geography : "Bulunur"
+    dim_sellers }o--|| dim_geography : "Bulunur"
 ```
 
 ---
