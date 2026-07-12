@@ -24,21 +24,21 @@ Proje, veriyi ham halinden en değerli analitik haline kadar katman katman işle
 
 ```mermaid
 graph LR
-    subgraph "Extract & Load (EL)"
+    subgraph EL ["Extract & Load (EL)"]
         CSV[("Kaggle Ham CSV")] -->|PySpark Ingestion| Bronze[("Bronze Katman\nIceberg / Parquet")]
     end
     
-    subgraph "Transform (T) - dbt"
+    subgraph T ["Transform (T) - dbt"]
         Bronze -->|dbt Staging Deduplication| Silver[("Silver Katman\nTemizlenmiş Veri")]
         Silver -->|dbt Models| Gold[("Gold Katman\nYıldız Şema")]
     end
     
-    subgraph "Serve & Analyze"
+    subgraph Serve ["Serve & Analyze"]
         Gold -->|Apache Doris| BI["Apache Superset\nDashboard API"]
     end
     
-    Airflow(("Apache Airflow")) -.->|Zamanlar| PySpark Ingestion
-    Airflow -.->|Cosmos ile Calistirir| Bronze
+    Airflow(("Apache Airflow")) -.->|PySpark Tetikler| Bronze
+    Airflow -.->|dbt Orkestre Eder| Silver
 ```
 
 | Katman | Araç | Görev |
