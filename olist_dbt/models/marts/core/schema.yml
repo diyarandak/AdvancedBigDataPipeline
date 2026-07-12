@@ -17,6 +17,10 @@ models:
         tests:
           - accepted_values:
               values: ['Sudeste', 'Sul', 'Nordeste', 'Centro-Oeste', 'Norte', 'Desconhecido']
+      - name: customer_state
+        description: "Customer state code"
+      - name: customer_city
+        description: "Customer city"
 
   - name: dim_products
     description: "Product dimension — enriched with English categories and size/weight classifications."
@@ -31,6 +35,8 @@ models:
         tests:
           - accepted_values:
               values: ['small', 'medium', 'large', 'extra_large', 'unknown']
+      - name: product_category
+        description: "Product category"
 
   - name: dim_sellers
     description: "Seller dimension with regional grouping."
@@ -40,6 +46,10 @@ models:
         tests:
           - unique
           - not_null
+      - name: seller_city
+        description: "Seller city"
+      - name: seller_state
+        description: "Seller state code"
 
   - name: dim_payment_type
     description: "Reference dimension for payment methods."
@@ -97,6 +107,10 @@ models:
         tests:
           - accepted_values:
               values: ['on_time', 'late', 'pending']
+      - name: order_status
+        description: "Status of the order"
+      - name: avg_review_score
+        description: "Average review score"
 
   - name: fact_order_items
     description: >

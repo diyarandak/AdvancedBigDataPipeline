@@ -27,3 +27,5 @@ _SUCCESS
 reports/watermark.json
 implementation_plan.md
 task.md
+olist_dbt/target/
+olist_dbt/dbt_packages/

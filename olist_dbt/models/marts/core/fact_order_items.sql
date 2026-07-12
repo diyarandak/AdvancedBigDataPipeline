@@ -1,5 +1,5 @@
 {{ config(
-    materialized='incremental',
+    materialized='table',
     unique_key='order_item_surrogate_key',
     schema='gold'
 ) }}
@@ -56,7 +56,3 @@ SELECT
 FROM items i
 INNER JOIN orders o ON i.order_id = o.order_id
 LEFT JOIN customers c ON o.customer_id = c.customer_id
-
-{% if is_incremental() %}
-WHERE o.order_purchase_timestamp > (SELECT MAX(order_date_key) FROM {{ this }})
-{% endif %}

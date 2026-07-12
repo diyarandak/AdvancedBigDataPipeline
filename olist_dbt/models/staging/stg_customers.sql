@@ -4,10 +4,10 @@
 ) }}
 
 WITH raw_customers AS (
-    SELECT * FROM {{ source('bronze', 'customers') }}
+    SELECT * FROM `hdfs_catalog`.`bronze`.`olist_customers_dataset`
 )
 
-SELECT
+SELECT DISTINCT
     customer_id,
     customer_unique_id,
     customer_zip_code_prefix,

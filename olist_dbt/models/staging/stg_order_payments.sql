@@ -4,10 +4,10 @@
 ) }}
 
 WITH raw_payments AS (
-    SELECT * FROM {{ source('bronze', 'order_payments') }}
+    SELECT * FROM `hdfs_catalog`.`bronze`.`olist_order_payments_dataset`
 )
 
-SELECT
+SELECT DISTINCT
     order_id,
     payment_sequential,
     payment_type,

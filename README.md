@@ -6,6 +6,18 @@ Modern Data Stack (Modern Veri Yığını) prensipleri benimsenerek; veriler Dat
 
 ---
 
+## 📸 Superset Analitik Dashboard
+
+Projemizin çıktısı olan ve otomatik Python API scriptleri ile saniyeler içinde Superset üzerinde ayağa kalkan interaktif Olist Dashboard'undan görüntüler:
+
+![Dashboard 1](Dashboards/Ekran%20Resmi%202026-07-13%2000.23.30.png)
+![Dashboard 2](Dashboards/Ekran%20Resmi%202026-07-13%2000.23.53.png)
+![Dashboard 3](Dashboards/Ekran%20Resmi%202026-07-13%2000.24.12.png)
+![Dashboard 4](Dashboards/Ekran%20Resmi%202026-07-13%2000.24.26.png)
+![Dashboard 5](Dashboards/Ekran%20Resmi%202026-07-13%2000.24.39.png)
+
+---
+
 ## 🏛️ Mimari Tasarım (Medallion Architecture)
 
 Proje, veriyi ham halinden en değerli analitik haline kadar katman katman işleyen Medallion yaklaşımını kullanmaktadır:
@@ -17,12 +29,12 @@ graph LR
     end
     
     subgraph "Transform (T) - dbt"
-        Bronze -->|dbt Staging| Silver[(Silver Katman\nTemizlenmiş Veri)]
+        Bronze -->|dbt Staging (Deduplication)| Silver[(Silver Katman\nTemizlenmiş Veri)]
         Silver -->|dbt Models| Gold[(Gold Katman\nYıldız Şema)]
     end
     
     subgraph "Serve & Analyze"
-        Gold -->|Apache Doris| BI[Apache Superset\nDashboard]
+        Gold -->|Apache Doris| BI[Apache Superset\nDashboard API]
     end
     
     Airflow((Apache Airflow)) -.->|Zamanlar| PySpark Ingestion
@@ -31,15 +43,15 @@ graph LR
 
 | Katman | Araç | Görev |
 | :--- | :--- | :--- |
-| 🥉 **Bronze (Ham)** | PySpark | Dış kaynaktaki veriyi hiçbir değişikliğe uğratmadan veri gölüne (Iceberg) yazar. |
-| 🥈 **Silver (Staging)** | dbt | Veri tiplerini düzeltir, NULL kayıtları süzer ve veri kalitesini standartlaştırır. |
-| 🥇 **Gold (Marts)** | dbt | Temizlenmiş verileri Star Schema (Yıldız Şema) yapısında birleştirerek iş birimine hazır Fact ve Dimension tabloları oluşturur. |
+| 🥉 **Bronze (Ham)** | PySpark | Dış kaynaktaki veriyi hiçbir değişikliğe uğratmadan veri gölüne (Apache Iceberg) yazar. |
+| 🥈 **Silver (Staging)** | dbt | Veri tiplerini düzeltir, **SELECT DISTINCT** mantığıyla mükerrer kayıtları temizler, NULL kayıtları süzer ve standartlaştırır. |
+| 🥇 **Gold (Marts)** | dbt | Temizlenmiş verileri Star Schema yapısında birleştirerek iş birimine hazır Fact ve Dimension tabloları oluşturur. |
 
 ---
 
 ## 🌟 Veri Modelleme (Star Schema)
 
-Analitik sorguların inanılmaz hızlı çalışması ve raporlama araçlarının (Superset vb.) rahat okuyabilmesi için **Gold** katmanımız Yıldız Şema yapısında tasarlanmıştır.
+Analitik sorguların inanılmaz hızlı çalışması ve raporlama araçlarının (Superset vb.) rahat okuyabilmesi için **Gold** katmanımız Yıldız Şema yapısında tasarlanmıştır. Ciro hesaplamalarında **Ürün Fiyatı + Kargo (Freight)** hesaba katılarak tam kapsamlı Gross Merchandise Value (GMV) elde edilmiştir.
 
 ```mermaid
 erDiagram
@@ -94,29 +106,57 @@ erDiagram
     fact_order_items }o--|| dim_sellers : "Satılır"
 ```
 
-### 📊 Tablo Yapıları
-1. **Fact (Gerçek) Tabloları:** `fact_orders`, `fact_order_items`, `fact_seller_performance` (Performans metrikleri ve sipariş tutarlarını içerir. Sadece yeni gelen verilerle **Incremental** olarak güncellenir).
-2. **Dimension (Boyut) Tabloları:** `dim_customers`, `dim_products`, `dim_sellers`, `dim_date`, `dim_geography` (Sorguları filtrelemek ve gruplamak için kullanılan anahtar açıklayıcı özellikler. SCD2 geçmiş takibi içerir).
-
 ---
 
 ## 🛠️ Kullanılan Teknolojiler
 
 *   **Veri Çıkarma (Ingestion):** PySpark (Büyük boyutlu verileri hızlıca Iceberg tablosu yapar)
 *   **Veritabanı / Veri Ambarı:** Apache Doris (Aşırı hızlı, modern OLAP motoru)
-*   **Veri Dönüştürme:** dbt (Data Build Tool - SQL ile test, dönüşüm, makro yazma)
+*   **Veri Dönüştürme:** dbt (Data Build Tool - SQL ile test, dönüşüm, mükerrer veri engelleme)
 *   **Orkestrasyon:** Apache Airflow & Astronomer Cosmos (Hata bildirimli gelişmiş DAG zincirleri)
-*   **Veri Görselleştirme:** Apache Superset (Executive ve Operasyonel paneller)
+*   **Veri Görselleştirme:** Apache Superset (Python API ile tam otomatik Dashboard Kurulumu)
 
 ---
 
 ## ✨ Projenin Kurumsal (Enterprise) Özellikleri
 
-*   **Veri Kalite Testleri:** dbt Expectation ve Custom testler ile anomaly detection (Örn: Ödeme tutarı sipariş tutarını aşamaz).
-*   **SCD Type 2 (Snapshots):** Müşteri lokasyon değişikliklerinin tarihsel bazda takip edilebilmesi.
+*   **Otomatik Dashboard Üretimi:** `visualization/create_dashboard.py` üzerinden Superset REST API kullanılarak tüm tablo kayıtları, veri setleri ve 10 farklı grafik otomatik oluşturulur.
+*   **Deduplication (Veri Tekilleştirme):** Ingestion süreçlerinde yaşanabilecek tekrar yüklemeler (Data Duplication) dbt katmanında `DISTINCT` mekanizması ve `_ingested_at` kolon filtresiyle önlenir.
+*   **Gelişmiş Metric'ler:** Treemap, Sunburst ve Coğrafi dağılım grafiklerinde Superset'in en modern ECharts bileşenleri (`treemap_v2`, `sunburst_v2` vb.) kullanıldı.
 *   **dbt Macros & Seeds:** Tekrar eden SQL kodlarının modüler (DRY) yapılması ve Brezilya eyalet gibi referans verilerin statik CSV olarak sisteme alınması.
-*   **Gelişmiş Airflow SLA:** Belirlenen sürede (Service Level Agreement) tamamlanmayan veri akışlarında alarm bildirim sistemi.
 *   **SQL Linter:** Kod bütünlüğünü sağlamak için `SQLFluff` konfigürasyonu.
+
+---
+
+## 📂 Dosya ve Klasör Hiyerarşisi
+
+Aşağıda projenin temiz ve modüler dosya ağacını görebilirsiniz:
+
+```text
+AdvancedBigDataPipeline/
+├── Makefile                        # Tüm kurulum ve çalıştırma komutlarının bulunduğu merkezi araç
+├── README.md                       # Proje dokümantasyonu (Bu dosya)
+├── Dashboards/                     # Superset üzerinden alınan rapor ekran görüntüleri
+├── airflow/                        # Airflow DAG'leri ve Astronomer konfigürasyonları
+│   └── dags/
+├── config/                         # Veritabanı, Spark ve diğer servis bağlantı ayarları
+├── data/                           # Kaggle'dan indirilen Olist CSV dosyaları
+├── docker/                         # Docker Compose YAML dosyaları (Doris, Superset, Airflow vb.)
+├── olist_dbt/                      # dbt veri dönüşüm projesi
+│   ├── dbt_project.yml
+│   ├── macros/                     # SQL makroları (örn: get_brazil_region)
+│   ├── models/
+│   │   ├── staging/                # Silver katman (Veri temizleme ve tekilleştirme)
+│   │   └── marts/                  # Gold katman (Fact ve Dimension tabloları)
+│   ├── seeds/                      # Referans verileri (brazil_states.csv)
+│   └── tests/                      # Veri doğrulama testleri
+├── processing/                     # PySpark veri içe aktarma scriptleri (Bronze Ingestion)
+├── scripts/                        # Otomasyon scriptleri (Veri indirme, ağ kurma vb.)
+└── visualization/                  # Superset API otomasyon klasörü
+    ├── cleanup.py                  # Eski dashboard'ları temizler
+    ├── create_dashboard.py         # Grafikleri ve Dashboard'u sıfırdan kurar
+    └── register_tables.py          # Veritabanı tablolarını Superset datasetlerine çevirir
+```
 
 ---
 
@@ -135,13 +175,9 @@ make download
 make pipeline
 ```
 
-### 3. Veri Soyağacı (Lineage) ve Dokümantasyon
-dbt'nin oluşturduğu otomatik web arayüzünü görmek için:
+### 3. Superset (Dashboardlar)
+Raporları ve panelleri oluşturmak için:
 ```bash
-cd olist_dbt
-dbt docs generate
-dbt docs serve
+make dashboard
 ```
-
-### 4. Superset (Dashboardlar)
-Raporları ve panelleri görüntülemek için `http://localhost:8088` adresine gidiniz (admin/admin).
+Erişim: `http://localhost:8088` (admin/admin).

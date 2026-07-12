@@ -15,19 +15,20 @@ SUPERSET_URL = "http://superset:8088"
 USERNAME = "admin"
 PASSWORD = "admin"
 
-# Spark Thrift Server / Iceberg Connection
-SPARK_URI = "hive://spark-thriftserver:10000/iceberg_catalog"
-DB_NAME = "Olist_Iceberg"
+# Doris Connection (MySQL protocol)
+DORIS_URI = "mysql://root:@doris-fe:9030/olist_gold"
+DB_NAME = "Olist_Doris"
 
 # The Gold tables we want to visualize
 TABLES = [
     "dim_customers",
     "dim_sellers",
     "dim_products",
-    "dim_geolocation",
-    "dim_dates",
-    "fact_order_payments",
-    "fact_order_sales"
+    "dim_geography",
+    "dim_date",
+    "fact_order_items",
+    "fact_orders",
+    "dim_payment_type"
 ]
 
 def get_auth_session():
@@ -71,7 +72,7 @@ def register_database(session):
     # Create new Database connection
     payload = {
         "database_name": DB_NAME,
-        "sqlalchemy_uri": SPARK_URI,
+        "sqlalchemy_uri": DORIS_URI,
         "expose_in_sqllab": True,
         "allow_run_async": False
     }
@@ -90,7 +91,7 @@ def register_datasets(session, db_id):
     for table in TABLES:
         payload = {
             "database": db_id,
-            "schema": "gold",
+            "schema": "olist_gold",
             "table_name": table
         }
         
@@ -98,7 +99,7 @@ def register_datasets(session, db_id):
         if resp.status_code == 201:
             logger.info(f"  [+] Successfully registered: {table}")
         elif resp.status_code == 422:
-            logger.warning(f"  [~] Dataset already exists: {table}")
+            logger.warning(f"  [~] Dataset already exists or validation failed: {table}. Details: {resp.text}")
         else:
             logger.error(f"  [-] Failed to register {table}: {resp.text}")
 

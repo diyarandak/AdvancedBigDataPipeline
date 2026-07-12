@@ -23,3 +23,4 @@ models:
     marts:
       +materialized: table
       +schema: gold
+      +properties: {"replication_num": "1"}

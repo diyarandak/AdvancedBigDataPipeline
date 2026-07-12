@@ -59,9 +59,11 @@ pipeline: bronze dbt-run dbt-test
 dashboard:
 	@echo "📊 Registering tables in Superset..."
 	docker exec olist-dev python visualization/register_tables.py
+	@echo "📈 Creating charts and dashboard..."
+	docker exec olist-dev python visualization/create_dashboard.py
 
 all: setup download pipeline dashboard
-	@echo "🎉 Everything is ready! Open http://localhost:8088 for Superset."
+	@echo "🎉 Everything is ready! Open http://localhost:8088/superset/dashboard/olist-analytics/"
 
 # --- Utilities ---
 stop:

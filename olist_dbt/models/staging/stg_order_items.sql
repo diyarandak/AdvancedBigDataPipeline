@@ -4,15 +4,15 @@
 ) }}
 
 WITH raw_order_items AS (
-    SELECT * FROM {{ source('bronze', 'order_items') }}
+    SELECT * FROM `hdfs_catalog`.`bronze`.`olist_order_items_dataset`
 )
 
-SELECT
+SELECT DISTINCT
     order_id,
     order_item_id,
     product_id,
     seller_id,
-    CAST(shipping_limit_date AS TIMESTAMP) AS shipping_limit_date,
+    CAST(shipping_limit_date AS DATETIME) AS shipping_limit_date,
     CAST(price AS DECIMAL(10,2)) AS price,
     CAST(freight_value AS DECIMAL(10,2)) AS freight_value,
     -- Derived metric: Total item cost (price + freight)

@@ -19,7 +19,8 @@ from processing.utils import (
     load_config,
     load_tables_config,
     create_spark_session,
-    save_watermark
+    save_watermark,
+    load_watermark
 )
 
 import pyspark.sql.functions as F
@@ -56,10 +57,19 @@ def process_bronze_layer():
     # We will use the Iceberg catalog defined in utils.py spark config
     catalog_name = "iceberg_catalog"
     
+    # Load existing watermarks to prevent duplicate processing
+    watermarks = load_watermark()
+    
     for table_conf in tables:
         table_name = table_conf["name"]
         source_file = table_conf["source_file"]
         
+        # Check watermark: if already SUCCESS, skip this table
+        wm_key = f"bronze.{table_name}"
+        if watermarks.get(wm_key, {}).get("status") == "SUCCESS":
+            logger.info(f"⏭️ Skipping {table_name}: Already processed successfully in watermark.")
+            continue
+            
         file_path = f"{raw_path}/{source_file}"
         
         logger.info(f"Processing table: {table_name}")

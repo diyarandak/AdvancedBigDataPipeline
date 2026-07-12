@@ -4,13 +4,13 @@
 ) }}
 
 WITH raw_products AS (
-    SELECT * FROM {{ source('bronze', 'products') }}
+    SELECT * FROM `hdfs_catalog`.`bronze`.`olist_products_dataset`
 ),
 translations AS (
-    SELECT * FROM {{ source('bronze', 'product_category_name_translation') }}
+    SELECT * FROM `hdfs_catalog`.`bronze`.`product_category_name_translation`
 )
 
-SELECT
+SELECT DISTINCT
     p.product_id,
     COALESCE(t.product_category_name_english, p.product_category_name, 'unknown') AS product_category,
     p.product_category_name AS product_category_original,

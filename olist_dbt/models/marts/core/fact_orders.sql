@@ -1,5 +1,5 @@
 {{ config(
-    materialized='incremental',
+    materialized='table',
     unique_key='order_id',
     schema='gold'
 ) }}
@@ -65,20 +65,21 @@ SELECT
     o.order_estimated_delivery_date,
 
     -- Delivery performance metrics
-    TIMESTAMPDIFF(
-        HOUR, o.order_purchase_timestamp, o.order_approved_at
+    -- Delivery performance metrics
+    hours_diff(
+        CAST(o.order_approved_at AS DATETIME), CAST(o.order_purchase_timestamp AS DATETIME)
     ) AS approval_time_hours,
-    TIMESTAMPDIFF(
-        DAY, o.order_approved_at, o.order_delivered_carrier_date
+    days_diff(
+        CAST(o.order_delivered_carrier_date AS DATETIME), CAST(o.order_approved_at AS DATETIME)
     ) AS processing_time_days,
-    TIMESTAMPDIFF(
-        DAY, o.order_delivered_carrier_date, o.order_delivered_customer_date
+    days_diff(
+        CAST(o.order_delivered_customer_date AS DATETIME), CAST(o.order_delivered_carrier_date AS DATETIME)
     ) AS shipping_time_days,
-    TIMESTAMPDIFF(
-        DAY, o.order_purchase_timestamp, o.order_delivered_customer_date
+    days_diff(
+        CAST(o.order_delivered_customer_date AS DATETIME), CAST(o.order_purchase_timestamp AS DATETIME)
     ) AS total_delivery_days,
-    TIMESTAMPDIFF(
-        DAY, o.order_estimated_delivery_date, o.order_delivered_customer_date
+    days_diff(
+        CAST(o.order_delivered_customer_date AS DATETIME), CAST(o.order_estimated_delivery_date AS DATETIME)
     ) AS delivery_delay_days,
     CASE
         WHEN o.order_delivered_customer_date <= o.order_estimated_delivery_date THEN 'on_time'
@@ -108,7 +109,3 @@ LEFT JOIN customers c ON o.customer_id = c.customer_id
 LEFT JOIN order_items_agg oi ON o.order_id = oi.order_id
 LEFT JOIN payments_agg pa ON o.order_id = pa.order_id
 LEFT JOIN reviews_agg rv ON o.order_id = rv.order_id
-
-{% if is_incremental() %}
-WHERE o.order_purchase_timestamp > (SELECT MAX(order_purchase_timestamp) FROM {{ this }})
-{% endif %}
